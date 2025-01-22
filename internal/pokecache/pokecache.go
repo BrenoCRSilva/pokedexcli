@@ -47,13 +47,15 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 }
 
 func (c *Cache) reapLoop() {
-	c.mux.Lock()
-	defer c.mux.Unlock()
-	time.Sleep(c.interval)
-	now := time.Now()
-	for k, v := range c.store {
-		if now.Sub(v.createdAt) > 5*time.Second {
-			delete(c.store, k)
+	ticker := time.NewTicker(c.interval)
+	for range ticker.C {
+		c.mux.Lock()
+		now := time.Now()
+		for k, v := range c.store {
+			if now.Sub(v.createdAt) > c.interval {
+				delete(c.store, k)
+			}
 		}
+		c.mux.Unlock()
 	}
 }
