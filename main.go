@@ -4,15 +4,19 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	. "github.com/BrenoCRSilva/pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*Config) error
+	callback    func(*Config, *Cache) error
 }
 type LocationArea struct {
 	Id   int    `json:"id"`
@@ -31,6 +35,7 @@ type Config struct {
 }
 
 func main() {
+	cache := NewCache(5 * time.Second)
 	cfg := &Config{
 		Previous: nil,
 		Next:     nil,
@@ -67,12 +72,12 @@ func main() {
 		if c, ok := commands[cmd]; !ok {
 			fmt.Println("Unknown command")
 		} else if cmd == "help" {
-			c.callback(cfg)
+			c.callback(cfg, cache)
 			for key := range commands {
 				fmt.Println(key, ":", commands[key].description)
 			}
 		} else {
-			c.callback(cfg)
+			c.callback(cfg, cache)
 		}
 
 	}
@@ -93,37 +98,46 @@ func cleanInput(input string) []string {
 	return cleaned
 }
 
-func commandExit(_ *Config) error {
+func commandExit(_ *Config, _ *Cache) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(_ *Config) error {
+func commandHelp(_ *Config, _ *Cache) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	fmt.Println()
 	return nil
 }
 
-func commandMap(cfg *Config) error {
+func commandMap(cfg *Config, cache *Cache) error {
+	var apiResponse APIResponse
 	url := "https://pokeapi.co/api/v2/location-area/"
 	if cfg.Next != nil {
 		url = *cfg.Next
 	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
+	var data []byte
+	if cached, ok := cache.Get(url); ok {
+		data = cached
+	} else {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return err
+		}
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		cache.Add(url, data)
 	}
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	var apiResponse APIResponse
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&apiResponse)
+	err := json.Unmarshal(data, &apiResponse)
 	if err != nil {
 		return err
 	}
@@ -132,27 +146,37 @@ func commandMap(cfg *Config) error {
 	}
 
 	cfg.Next = apiResponse.Next
+	cfg.Previous = apiResponse.Previous
 	return nil
 }
 
-func commandMapb(cfg *Config) error {
+func commandMapb(cfg *Config, cache *Cache) error {
+	var apiResponse APIResponse
 	url := "https://pokeapi.co/api/v2/location-area/"
 	if cfg.Previous != nil {
 		url = *cfg.Previous
 	}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
+	var data []byte
+	if cached, ok := cache.Get(url); ok {
+		data = cached
+	} else {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return err
+		}
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		data, err = io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		cache.Add(url, data)
 	}
-	client := &http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	var apiResponse APIResponse
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&apiResponse)
+	err := json.Unmarshal(data, &apiResponse)
 	if err != nil {
 		return err
 	}
@@ -160,6 +184,7 @@ func commandMapb(cfg *Config) error {
 		fmt.Println(a.Name)
 	}
 
+	cfg.Next = apiResponse.Next
 	cfg.Previous = apiResponse.Previous
 	return nil
 }
