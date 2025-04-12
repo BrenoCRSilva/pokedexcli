@@ -60,6 +60,20 @@ func (c *Client) FetchPokemon(name string) (Pokemon, error) {
 	return pokemon, nil
 }
 
+func (c *Client) FetchPokemonSpecies(name string) (PokemonSpecies, error) {
+	var pokemon PokemonSpecies
+	url := fmt.Sprintf("%s/pokemon-species/%s", c.baseUrl, name)
+	data, err := c.fetchFromCacheOrAPI(url)
+	if err != nil {
+		return PokemonSpecies{}, err
+	}
+	err = json.Unmarshal(data, &pokemon)
+	if err != nil {
+		return PokemonSpecies{}, err
+	}
+	return pokemon, nil
+}
+
 func (c *Client) ListNextLocationAreas() (PageResponse[LocationArea], error) {
 	var locationAreas PageResponse[LocationArea]
 	url := fmt.Sprintf("%s/location-area/", c.baseUrl)
@@ -106,4 +120,47 @@ func (c *Client) FetchLocationArea(name string) (LocationArea, error) {
 		return LocationArea{}, err
 	}
 	return locationArea, nil
+}
+
+func (c *Client) ListRegions() (PageResponse[Region], error) {
+	var regions PageResponse[Region]
+	// regions don't have need for page navigation
+	url := fmt.Sprintf("%s/region/", c.baseUrl)
+	data, err := c.fetchFromCacheOrAPI(url)
+	if err != nil {
+		return PageResponse[Region]{}, err
+	}
+	err = json.Unmarshal(data, &regions)
+	if err != nil {
+		return PageResponse[Region]{}, err
+	}
+	return regions, nil
+}
+
+func (c *Client) FetchRegion(name string) (Region, error) {
+	var region Region
+	url := fmt.Sprintf("%s/region/%s", c.baseUrl, name)
+	data, err := c.fetchFromCacheOrAPI(url)
+	if err != nil {
+		return Region{}, err
+	}
+	err = json.Unmarshal(data, &region)
+	if err != nil {
+		return Region{}, err
+	}
+	return region, nil
+}
+
+func (c *Client) FetchLocation(name string) (Location, error) {
+	var location Location
+	url := fmt.Sprintf("%s/location/%s", c.baseUrl, name)
+	data, err := c.fetchFromCacheOrAPI(url)
+	if err != nil {
+		return Location{}, err
+	}
+	err = json.Unmarshal(data, &location)
+	if err != nil {
+		return Location{}, err
+	}
+	return location, nil
 }

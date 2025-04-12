@@ -10,8 +10,11 @@ import (
 )
 
 func StartRepl(input *bufio.Scanner, cr *commands.CommandRegistry, gs *game.GameState) {
+	fmt.Println("Welcome to Pokemon, CLI version.")
+	c, _ := cr.Get("help")
+	c.Callback(gs, "")
 	for {
-		fmt.Print("Pokedex > ")
+		fmt.Printf("%s > ", gs.Mode)
 		input.Scan()
 		cleaned := cleanInput(input.Text())
 		cmd := cleaned[0]
